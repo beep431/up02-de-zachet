@@ -17,6 +17,7 @@ class ViewForm:
     def __init__(self, parent, product, on_add_to_order=None):
         self.product = product
         self.on_add_to_order = on_add_to_order
+        self.qty_var = tk.StringVar(value="1")   # ← создаём здесь
 
         self.window = tk.Toplevel(parent)
         self.window.title(f"Просмотр — {product[1]}")
@@ -27,43 +28,92 @@ class ViewForm:
 
     def build_ui(self):
         """Строит интерфейс формы."""
-        # Шапка — ГОТОВО
-        # ... (готовый код шапки и изображения)
 
-        # TODO: 6 вызовов _add_field
-        # TODO: поле ввода количества
-        # TODO: кнопки
+        # --- Шапка ---
+        header = tk.Frame(self.window, bg=COLOR_SECONDARY_BG, height=60)
+        header.pack(fill="x")
+        header.pack_propagate(False)
+        tk.Label(header, text=self.product[1],
+                 font=font(FONT_SIZE_TITLE, bold=True),
+                 bg=COLOR_SECONDARY_BG).pack(pady=15)
+
+        # --- Изображение ---
+        img_frame = tk.Frame(self.window, bg=COLOR_MAIN_BG)
+        img_frame.pack(pady=10)
+        photo = get_product_image(self.product[7], size=(200, 200))
+        if photo:
+            img_label = tk.Label(img_frame, image=photo, bg=COLOR_MAIN_BG)
+            img_label.image = photo   # сохраняем ссылку!
+            img_label.pack()
+        else:
+            tk.Label(img_frame, text="[НЕТ ФОТО]", bg=COLOR_MAIN_BG,
+                     width=20, height=10).pack()
+
+        # --- 6 полей через _add_field ---
+        info_frame = tk.Frame(self.window, bg=COLOR_MAIN_BG)
+        info_frame.pack(fill="x", padx=20, pady=10)
+        self._add_field(info_frame, "Название", self.product[1])
+        self._add_field(info_frame, "Категория", self.product[2])
+        self._add_field(info_frame, "Производитель", self.product[3])
+        self._add_field(info_frame, "Характеристики", self.product[4])
+        self._add_field(info_frame, "Цена", f"{self.product[5]} руб.")
+        self._add_field(info_frame, "Количество", self.product[6])
+
+        # --- Поле ввода количества ---
+        qty_frame = tk.Frame(self.window, bg=COLOR_MAIN_BG)
+        qty_frame.pack(fill="x", padx=20, pady=10)
+        tk.Label(qty_frame, text="Количество для заказа:",
+                 font=font(bold=True), bg=COLOR_MAIN_BG).pack(side="left")
+        tk.Entry(qty_frame, textvariable=self.qty_var,
+                 width=10).pack(side="left", padx=5)
+
+        # --- Кнопки ---
+        btn_frame = tk.Frame(self.window, bg=COLOR_MAIN_BG)
+        btn_frame.pack(fill="x", pady=20)
+        tk.Button(btn_frame, text="Добавить в заказ",
+                  command=self.add_to_order,
+                  bg=COLOR_ACCENT, fg="white",
+                  font=font(FONT_SIZE_NORMAL)).pack(side="left", padx=20)
+        tk.Button(btn_frame, text="Закрыть",
+                  command=self.window.destroy,
+                  bg=COLOR_ACCENT, fg="white",
+                  font=font(FONT_SIZE_NORMAL)).pack(side="right", padx=20)
 
     def _add_field(self, parent, label, value):
         """Добавляет поле в форму."""
-        row = tk.Frame(parent, bg=???)
+        row = tk.Frame(parent, bg=COLOR_MAIN_BG)
         row.pack(fill="x", pady=2)
-        tk.Label(row, text=f"{???}:", font=font(bold=???),
-                 width=???, anchor="w").pack(side="left")
-        tk.Label(row, text=str(???), font=font(),
-                 anchor="w").pack(side=???)
+        tk.Label(row, text=f"{label}:", font=font(bold=True),
+                 width=15, anchor="w").pack(side="left")
+        tk.Label(row, text=str(value), font=font(),
+                 anchor="w").pack(side="left")
 
     def add_to_order(self):
         """Обработчик кнопки «Добавить в заказ»."""
-        if not ???:
+        if not self.product:
             messagebox.showerror("Ошибка", "Товар не выбран")
             return
-        ok, result = validate_positive_int(self.qty_var.??? (), "Количество")
+
+        ok, result = validate_positive_int(self.qty_var.get(), "Количество")
         if not ok:
-            messagebox.???("Ошибка ввода", result)
+            messagebox.showerror("Ошибка ввода", str(result))   # str()
             return
-        qty = ???
-        current_qty = get_product_quantity(self.product[???])
-        if qty ??? current_qty:
-            messagebox.showwarning("Ошибка", f"Доступно только {???} шт.")
+
+        qty = int(result)   # гарантируем int
+        current_qty = get_product_quantity(self.product[0])
+        if qty > current_qty:
+            messagebox.showwarning("Ошибка",
+                                   f"Доступно только {current_qty} шт.")
             return
+
         try:
-            items = [(self.product[???], self.product[???], qty, self.product[???])]
-            order_id = create_order("Клиент", ???)
+            # (product_id, model, quantity, price)
+            items = [(self.product[0], self.product[8], qty, self.product[5])]
+            order_id = create_order("Клиент", items)
             if order_id:
-                messagebox.???("Успех", f"Заказ №{order_id} оформлен")
+                messagebox.showinfo("Успех", f"Заказ №{order_id} оформлен")
                 if self.on_add_to_order:
                     self.on_add_to_order()
-                self.window.??? ()
+                self.window.destroy()
         except Exception as e:
             messagebox.showerror("Ошибка", f"Ошибка заказа:\n{e}")
